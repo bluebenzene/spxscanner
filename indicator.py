@@ -78,6 +78,8 @@ for tf in timeframes:
         # Buy and Sell Signals
         df['buy_signal'] = np.where((df['r2_smoothed'] > 90) & (df['rsi'] < 30), 1, 0)
         df['sell_signal'] = np.where((df['r2_smoothed'] > 90) & (df['rsi'] > 70), 1, 0)
+        # Filter rows with buy or sell signals
+        df = df[(df['buy_signal'] == 1) | (df['sell_signal'] == 1)]
         
         data[tf][ticker] = df
 
