@@ -29,9 +29,12 @@ tickers = tickers_df['Ticker'].tolist()
 timeframes = {
     # '15m': timedelta(days=60),
     # '1h': timedelta(days=730),
-    '1d': timedelta(days=3*365),
+    '1d': timedelta(days=90),
     # '1wk': timedelta(days=3*365)
 }
+
+# Define the recent period (in days)
+recent_period = 1
 
 # Function to download data for a given ticker and timeframe
 def download_data(ticker, timeframe, start_date, end_date):
@@ -49,6 +52,9 @@ for ticker in tickers:
             data[tf][ticker] = download_data(ticker, tf, start_date, end_date)
         except Exception as e:
             print(f"Failed to download data for {ticker} with timeframe {tf}: {e}")
+
+# List to store screener results
+screener_results = []
 
 # Applying the custom indicator and generating buy/sell signals
 for tf in timeframes:
@@ -78,17 +84,28 @@ for tf in timeframes:
         # Buy and Sell Signals
         df['buy_signal'] = np.where((df['r2_smoothed'] > 90) & (df['rsi'] < 30), 1, 0)
         df['sell_signal'] = np.where((df['r2_smoothed'] > 90) & (df['rsi'] > 70), 1, 0)
-        # Filter rows with buy or sell signals
-        df = df[(df['buy_signal'] == 1) | (df['sell_signal'] == 1)]
         
-        data[tf][ticker] = df
+        # Filter for recent periods
+        recent_date_cutoff = df.index.max() - pd.Timedelta(days=recent_period)
+        df = df[df.index >= recent_date_cutoff]
+        
+        # Filter rows with buy or sell signals
+        df_filtered = df[(df['buy_signal'] == 1) | (df['sell_signal'] == 1)]
+        
+        # Append results to screener list
+        if not df_filtered.empty:
+            for index, row in df_filtered.iterrows():
+                screener_results.append({
+                    'Ticker': ticker,
+                    'Date': index,
+                    'Buy Signal': row['buy_signal'],
+                    'Sell Signal': row['sell_signal']
+                })
 
-# Save data to CSV files for each timeframe
-for tf in timeframes:
-    combined_data = pd.concat(data[tf], keys=data[tf].keys(), names=['Ticker', 'Date'])
-    combined_data.to_csv(f'sp500_ohlc_data_{tf}.csv')
+# Save screener results to a CSV file
+screener_df = pd.DataFrame(screener_results)
+screener_df.to_csv('screener_results.csv', index=False)
 
-# Display a sample of the data
-for tf in timeframes:
-    print(f"Sample data for {tf}:")
-    print(data[tf][tickers[0]].head())
+# Display a sample of the screener results
+print("Screener results:")
+print(screener_df.head())

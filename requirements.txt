@@ -2,3 +2,4 @@ yfinance
 pandas
 beautifulsoup4
 pandas_ta
+python-dotenv
