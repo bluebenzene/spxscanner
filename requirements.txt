@@ -3,3 +3,4 @@ pandas
 beautifulsoup4
 pandas_ta
 python-dotenv
+numpy==1.26.4

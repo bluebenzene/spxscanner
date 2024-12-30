@@ -7,8 +7,9 @@ import requests
 from bs4 import BeautifulSoup
 import os
 from dotenv import load_dotenv
-load_dotenv()
+import pytz  # Import pytz for timezone handling
 
+load_dotenv()
 
 # Function to fetch S&P 500 tickers from Wikipedia
 def get_sp500_tickers():
@@ -39,24 +40,36 @@ tickers = tickers_df['Ticker'].tolist()
 
 # Define the timeframes and their corresponding date ranges
 timeframes = {
-    # '15m': timedelta(days=60),
-    # '1h': timedelta(days=730),
-    '1d': timedelta(days=90),
-    # '1wk': timedelta(days=3*365)
+    '1h': timedelta(days=30),
+    '1d': timedelta(days=90)
 }
+
+# Restrict the script to run only during US market hours
+us_timezone = pytz.timezone("America/New_York")
+current_time = datetime.now(us_timezone)
+market_open = current_time.replace(hour=9, minute=30, second=0, microsecond=0)
+market_close = current_time.replace(hour=16, minute=0, second=0, microsecond=0)
+
+if current_time < market_open or current_time > market_close:
+    print("Market is closed. Exiting.")
+    exit()
 
 # Define the recent period (in days)
 recent_period = 1
 
 # Function to download data for a given ticker and timeframe
 def download_data(ticker, timeframe, start_date, end_date):
-    return yf.download(ticker, start=start_date, end=end_date, interval=timeframe)
+    interval_map = {
+        '1h': '60m',
+        '1d': '1d'
+    }
+    return yf.download(ticker, start=start_date, end=end_date, interval=interval_map[timeframe])
 
 # Dictionary to store data for each timeframe
 data = {tf: {} for tf in timeframes}
 
 # Download data for each ticker and timeframe
-end_date = datetime.now()
+end_date = datetime.now(us_timezone)
 for ticker in tickers:
     for tf, delta in timeframes.items():
         start_date = end_date - delta
@@ -103,6 +116,7 @@ for tf in timeframes:
         
         # Filter rows with buy or sell signals
         df_filtered = df[(df['buy_signal'] == 1) | (df['sell_signal'] == 1)]
+        df_filtered['Timeframe'] = tf
         
         # Append results to screener list
         if not df_filtered.empty:
@@ -111,7 +125,8 @@ for tf in timeframes:
                     'Ticker': ticker,
                     'Date': index,
                     'Buy Signal': row['buy_signal'],
-                    'Sell Signal': row['sell_signal']
+                    'Sell Signal': row['sell_signal'],
+                    'Timeframe': tf
                 })
 
 # Save screener results to a CSV file
