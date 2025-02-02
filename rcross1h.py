@@ -165,7 +165,7 @@ else:
 
     # Send results to Telegram
     if not screener_df.empty:
-        message = "linear regression crossover occurs 25,50\n 1hr timeframe \n" + screener_df.to_string(index=False)
+        message = "Hourly screener Results:\n Buy=linreg 25 crossover linreg 50 \n Sell=linreg 25 cross below linreg 50 \n" + screener_df.to_string(index=False)
         send_telegram_message(message)
 
     # Display a sample of the screener results
