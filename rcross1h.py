@@ -169,5 +169,5 @@ else:
         send_telegram_message(message)
 
     # Display a sample of the screener results
-    print("RESULT:")
+    print("Hourly screener Results:\n Buy=linreg 25 crossover linreg 50 \n Sell=linreg 25 cross below linreg 50 \n")
     print(screener_df.tail())

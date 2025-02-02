@@ -180,5 +180,5 @@ else:
         send_telegram_message(message)
 
     # Display a sample of the screener results
-    # print("R-squared is high ( > 90 ) and RSI is oversold ( < 30 ):")
-    # print(screener_df.head())
+    print("R-squared is high ( > 90 ) and RSI is oversold ( < 30 ):")
+    print(screener_df.head())
