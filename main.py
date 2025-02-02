@@ -30,11 +30,14 @@ def send_telegram_message(message):
 # Get the S&P 500 tickers
 sp500_tickers = get_sp500_tickers()
 
-# Save the tickers to a CSV file
-pd.DataFrame(sp500_tickers, columns=["Ticker"]).to_csv('sp500_tickers.csv', index=False)
+# Ensure the stockdata directory exists
+os.makedirs('stockdata', exist_ok=True)
 
-# Read the tickers from the CSV file
-tickers_df = pd.read_csv('sp500_tickers.csv')
+# Save the tickers to a CSV file in the stockdata folder
+pd.DataFrame(sp500_tickers, columns=["Ticker"]).to_csv('stockdata/sp500_tickers.csv', index=False)
+
+# Read the tickers from the CSV file in the stockdata folder
+tickers_df = pd.read_csv('stockdata/sp500_tickers.csv')
 tickers = tickers_df['Ticker'].tolist()
 
 # Define the timeframes and their corresponding date ranges
@@ -55,61 +58,92 @@ def download_data(ticker, timeframe, start_date, end_date):
 # Dictionary to store data for each timeframe
 data = {tf: {} for tf in timeframes}
 
-# Download data for each ticker and timeframe
+# Download historical data for each ticker and timeframe
 end_date = datetime.now()
 for ticker in tickers:
     for tf, delta in timeframes.items():
         start_date = end_date - delta
         try:
-            data[tf][ticker] = download_data(ticker, tf, start_date, end_date)
+            df = download_data(ticker, tf, start_date, end_date)
+            if df.empty:
+                print(f"No data available for {ticker} on timeframe {tf}. Skipping.")
+                continue
+            data[tf][ticker] = df
         except Exception as e:
             print(f"Failed to download data for {ticker} with timeframe {tf}: {e}")
+
 
 # List to store screener results
 screener_results = []
 
-# Applying the custom indicator and generating buy/sell signals
+# Process each ticker's data for each timeframe
 for tf in timeframes:
-    for ticker in data[tf]:
-        df = data[tf][ticker]
+    for ticker, df in data[tf].items():
+        # Ensure the index is in datetime format (if not already)
+        df.index = pd.to_datetime(df.index)
         
         # Round OHLC values to two decimal points
-        df['Open'] = df['Open'].round(2)
-        df['High'] = df['High'].round(2)
-        df['Low'] = df['Low'].round(2)
-        df['Close'] = df['Close'].round(2)
-        
-        # Linear Regression Curves
+        for col in ['Open', 'High', 'Low', 'Close']:
+            if col in df.columns:
+                df[col] = df[col].round(2)
+
+        # -------------------------------
+        # Calculate Linear Regression Channels
+        # -------------------------------
         df['reg1'] = ta.linreg(df['Close'], length=10)
         df['reg2'] = ta.linreg(df['Close'], length=14)
         df['reg3'] = ta.linreg(df['Close'], length=30)
-        
+
+        # -------------------------------
         # R-squared Calculation
-        r2_length = 25
-        df['r2_raw'] = df['Close'].rolling(window=r2_length).apply(lambda x: np.corrcoef(x, np.arange(r2_length))[0, 1]**2)
-        df['r2'] = df['r2_raw'] * 100  # Normalized to [0, 100]
+        # -------------------------------
+        r2_length = 14
+        # Calculate the R-squared value for a rolling window
+        df['r2_raw'] = df['Close'].rolling(window=r2_length).apply(
+            lambda x: np.corrcoef(x, np.arange(r2_length))[0, 1]**2 if len(x) == r2_length else np.nan,
+            raw=False
+        )
+        # Normalize to a scale of 0 to 100 and smooth over 3 periods
+        df['r2'] = df['r2_raw'] * 100  
         df['r2_smoothed'] = df['r2'].rolling(window=3).mean()
-        
-        # RSI Calculation
-        df['rsi'] = ta.rsi(df['Close'], length=14)
-        
-        # Buy and Sell Signals
-        df['buy_signal'] = np.where((df['r2_smoothed'] > 90) & (df['rsi'] < 30), 1, 0)
-        df['sell_signal'] = np.where((df['r2_smoothed'] > 90) & (df['rsi'] > 70), 1, 0)
-        
-        # Filter for recent periods
+
+        # -------------------------------
+        # Flatten the columns if they are a MultiIndex
+        # -------------------------------
+        if isinstance(df.columns, pd.MultiIndex):
+            df.columns = df.columns.get_level_values(0)
+
+        # -------------------------------
+        # Calculate RSI using pandas_ta (14-day period)
+        # -------------------------------
+        df.ta.rsi(close='Close', length=14, append=True)  # This adds an "RSI_14" column
+
+        # -------------------------------
+        # Define Buy and Sell Signals
+        # -------------------------------
+        # A buy signal is generated if the smoothed R-squared is high ( > 90 )
+        # and the RSI is oversold ( < 30 )
+        df['buy_signal'] = np.where((df['r2_smoothed'] > 90) & (df['RSI_14'] < 30), 1, 0)
+        # A sell signal is generated if the smoothed R-squared is high ( > 90 )
+        # and the RSI is overbought ( > 70 )
+        df['sell_signal'] = np.where((df['r2_smoothed'] > 90) & (df['RSI_14'] > 70), 1, 0)
+
+        # Save each ticker's data to a CSV file in the stockdata folder
+        df.to_csv(f'stockdata/{ticker}_{tf}_data.csv')
+
+        # -------------------------------
+        # Filter for Recent Data and Signal Conditions
+        # -------------------------------
         recent_date_cutoff = df.index.max() - pd.Timedelta(days=recent_period)
-        df = df[df.index >= recent_date_cutoff]
+        df_recent = df[df.index >= recent_date_cutoff]
+        df_filtered = df_recent[(df_recent['buy_signal'] == 1) | (df_recent['sell_signal'] == 1)]
         
-        # Filter rows with buy or sell signals
-        df_filtered = df[(df['buy_signal'] == 1) | (df['sell_signal'] == 1)]
-        
-        # Append results to screener list
+        # If any signal was found in the recent period, add it to the results
         if not df_filtered.empty:
-            for index, row in df_filtered.iterrows():
+            for date, row in df_filtered.iterrows():
                 screener_results.append({
                     'Ticker': ticker,
-                    'Date': index,
+                    'Date': date,
                     'Buy Signal': row['buy_signal'],
                     'Sell Signal': row['sell_signal']
                 })
@@ -120,9 +154,9 @@ screener_df.to_csv('screener_results.csv', index=False)
 
 # Send results to Telegram
 if not screener_df.empty:
-    message = "Screener results:\n" + screener_df.to_string(index=False)
+    message = "R-squared is high ( > 90 ) and RSI is oversold ( < 30 ):\n" + screener_df.to_string(index=False)
     send_telegram_message(message)
 
 # Display a sample of the screener results
-print("Screener results:")
-print(screener_df.head())
+# print("R-squared is high ( > 90 ) and RSI is oversold ( < 30 ):")
+# print(screener_df.head())

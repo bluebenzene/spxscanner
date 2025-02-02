@@ -1,3 +1,4 @@
 sp500_and_small_caps_historical_data.csv
 *.csv
 .env
+stockdata/

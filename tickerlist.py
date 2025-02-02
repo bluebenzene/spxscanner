@@ -9,7 +9,7 @@ def get_sp500_tickers():
     soup = BeautifulSoup(response.text, 'html.parser')
     table = soup.find('table', {'id': 'constituents'})
     tickers = [row.find('td').text.strip() for row in table.find_all('tr')[1:]]
-    return tickers
+    return tickers# Get only the first 10 tickers
 
 # Get the S&P 500 tickers
 sp500_tickers = get_sp500_tickers()
