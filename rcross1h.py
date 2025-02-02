@@ -117,9 +117,9 @@ for tf in timeframes:
         df.to_csv(f'stockdata/{ticker}_{tf}_data.csv')
 
         
-        
+        hoursback =1 
         # Filter for recent periods
-        recent_date_cutoff = df.index.max() - pd.Timedelta(days=recent_period)
+        recent_date_cutoff = df.index.max() - pd.Timedelta(hours=hoursback)
         df = df[df.index >= recent_date_cutoff]
         
         # Filter rows with buy or sell signals
@@ -142,7 +142,7 @@ screener_df.to_csv('Regression_cross_screener_results_1h.csv', index=False)
 
 # Send results to Telegram
 if not screener_df.empty:
-    message = "linear regression crossover occurs 25,50,\n 1hr timeframe \n" + screener_df.to_string(index=False)
+    message = "linear regression crossover occurs 25,50\n 1hr timeframe \n" + screener_df.to_string(index=False)
     send_telegram_message(message)
 
 # Display a sample of the screener results
