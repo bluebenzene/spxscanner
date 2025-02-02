@@ -73,90 +73,78 @@ for ticker in tickers:
             print(f"Failed to download data for {ticker} with timeframe {tf}: {e}")
 
 
+
 # List to store screener results
 screener_results = []
 
-# Process each ticker's data for each timeframe
+# Applying the custom indicator and generating buy/sell signals
 for tf in timeframes:
-    for ticker, df in data[tf].items():
-        # Ensure the index is in datetime format (if not already)
-        df.index = pd.to_datetime(df.index)
+    for ticker in data[tf]:
+        df = data[tf][ticker]
         
-        # Round OHLC values to two decimal points
-        for col in ['Open', 'High', 'Low', 'Close']:
-            if col in df.columns:
-                df[col] = df[col].round(2)
-
-        # -------------------------------
-        # Calculate Linear Regression Channels
-        # -------------------------------
-        df['reg1'] = ta.linreg(df['Close'], length=10)
-        df['reg2'] = ta.linreg(df['Close'], length=14)
-        df['reg3'] = ta.linreg(df['Close'], length=30)
-
-        # -------------------------------
-        # R-squared Calculation
-        # -------------------------------
-        r2_length = 14
-        # Calculate the R-squared value for a rolling window
-        df['r2_raw'] = df['Close'].rolling(window=r2_length).apply(
-            lambda x: np.corrcoef(x, np.arange(r2_length))[0, 1]**2 if len(x) == r2_length else np.nan,
-            raw=False
-        )
-        # Normalize to a scale of 0 to 100 and smooth over 3 periods
-        df['r2'] = df['r2_raw'] * 100  
-        df['r2_smoothed'] = df['r2'].rolling(window=3).mean()
-
-        # -------------------------------
-        # Flatten the columns if they are a MultiIndex
-        # -------------------------------
+                # If the DataFrame columns are a MultiIndex, flatten them
         if isinstance(df.columns, pd.MultiIndex):
             df.columns = df.columns.get_level_values(0)
 
-        # -------------------------------
-        # Calculate RSI using pandas_ta (14-day period)
-        # -------------------------------
-        df.ta.rsi(close='Close', length=14, append=True)  # This adds an "RSI_14" column
+        
+        # Round OHLC values to two decimal points
+        df['Open'] = df['Open'].round(2)
+        df['High'] = df['High'].round(2)
+        df['Low'] = df['Low'].round(2)
+        df['Close'] = df['Close'].round(2)
+        
+       # --- Existing calculations ---
+        # Linear Regression Curves
+        
+        df['reg1'] = ta.linreg(df['Close'], length=25)
+        df['reg2'] = ta.linreg(df['Close'], length=50)
+        
 
-        # -------------------------------
-        # Define Buy and Sell Signals
-        # -------------------------------
-        # A buy signal is generated if the smoothed R-squared is high ( > 90 )
-        # and the RSI is oversold ( < 30 )
-        df['buy_signal'] = np.where((df['r2_smoothed'] > 90) & (df['RSI_14'] < 30), 1, 0)
-        # A sell signal is generated if the smoothed R-squared is high ( > 90 )
-        # and the RSI is overbought ( > 70 )
-        df['sell_signal'] = np.where((df['r2_smoothed'] > 90) & (df['RSI_14'] > 70), 1, 0)
-
+        df['buy_signal'] = np.where(
+            (df['reg1'] > df['reg2']) & (df['reg1'].shift(1) <= df['reg2'].shift(1)),
+            1,
+            0
+        )
+        
+        # Sell Signal: When the 25-period line (reg1) crosses below the 50-period line (reg2)
+        df['sell_signal'] = np.where(
+            (df['reg1'] < df['reg2']) & (df['reg1'].shift(1) >= df['reg2'].shift(1)),
+            1,
+            0
+        )
+                
         # Save each ticker's data to a CSV file in the stockdata folder
         df.to_csv(f'stockdata/{ticker}_{tf}_data.csv')
 
-        # -------------------------------
-        # Filter for Recent Data and Signal Conditions
-        # -------------------------------
-        recent_date_cutoff = df.index.max() - pd.Timedelta(days=recent_period)
-        df_recent = df[df.index >= recent_date_cutoff]
-        df_filtered = df_recent[(df_recent['buy_signal'] == 1) | (df_recent['sell_signal'] == 1)]
         
-        # If any signal was found in the recent period, add it to the results
+        
+        # Filter for recent periods
+        recent_date_cutoff = df.index.max() - pd.Timedelta(days=recent_period)
+        df = df[df.index >= recent_date_cutoff]
+        
+        # Filter rows with buy or sell signals
+        df_filtered = df[(df['buy_signal'] == 1) | (df['sell_signal'] == 1)]
+        
+        # Append results to screener list
         if not df_filtered.empty:
-            for date, row in df_filtered.iterrows():
+            for index, row in df_filtered.iterrows():
                 screener_results.append({
                     'Ticker': ticker,
-                    'Date': date,
+                    'Date': index,
                     'Buy Signal': row['buy_signal'],
                     'Sell Signal': row['sell_signal']
                 })
 
 # Save screener results to a CSV file
 screener_df = pd.DataFrame(screener_results)
-screener_df.to_csv('screener_results_1d.csv', index=False)
+screener_df.to_csv('Regression_cross_screener_results_1d.csv', index=False)
+
 
 # Send results to Telegram
 if not screener_df.empty:
-    message = "R-squared is high ( > 90 ) and RSI is oversold ( < 30 ):\n 1d timeframe \n" + screener_df.to_string(index=False)
+    message = "linear regression crossover occurs 25,50\n 1d timeframe \n" + screener_df.to_string(index=False)
     send_telegram_message(message)
 
 # Display a sample of the screener results
-# print("R-squared is high ( > 90 ) and RSI is oversold ( < 30 ):")
-# print(screener_df.head())
+print("RESULT:")
+print(screener_df.tail())
