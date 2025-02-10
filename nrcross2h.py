@@ -11,25 +11,25 @@ from datetime import datetime, timedelta
 ############################
 # 1. Time Check for Every 2 Hours
 ############################
-def can_run_now():
-    """
-    Checks if at least 2 hours have passed since the last script execution.
-    Stores the last run timestamp in an environment variable.
-    """
-    eastern = pytz.timezone('US/Eastern')
-    now = datetime.now(eastern)
+# def can_run_now():
+#     """
+#     Checks if at least 2 hours have passed since the last script execution.
+#     Stores the last run timestamp in an environment variable.
+#     """
+#     eastern = pytz.timezone('US/Eastern')
+#     now = datetime.now(eastern)
     
-    last_run = os.getenv("LAST_RUN_TIME")
+#     last_run = os.getenv("LAST_RUN_TIME")
     
-    if last_run:
-        last_run_time = datetime.fromisoformat(last_run)
-        if now - last_run_time < timedelta(hours=2):
-            print("Less than 2 hours since last run. Exiting.")
-            return False
+#     if last_run:
+#         last_run_time = datetime.fromisoformat(last_run)
+#         if now - last_run_time < timedelta(hours=2):
+#             print("Less than 2 hours since last run. Exiting.")
+#             return False
 
-    # Update last run time
-    os.system(f'heroku config:set LAST_RUN_TIME="{now.isoformat()}"')
-    return True
+#     # Update last run time
+#     os.system(f'heroku config:set LAST_RUN_TIME="{now.isoformat()}"')
+#     return True
 
 ############################
 # 2. Market Open Check
@@ -45,8 +45,8 @@ def is_us_market_open():
     if now.weekday() in [5, 6]:  # Saturday or Sunday
         return False
     
-    market_open = now.replace(hour=9, minute=30, second=0, microsecond=0)
-    market_close = now.replace(hour=16, minute=0, second=0, microsecond=0)
+    market_open = now.replace(hour=9, minute=25, second=0, microsecond=0)
+    market_close = now.replace(hour=16, minute=15, second=0, microsecond=0)
     
     return market_open <= now <= market_close
 
@@ -81,8 +81,8 @@ def download_data(ticker, timeframe, start_date, end_date):
 # 5. Main Screener
 ############################
 def main():
-    if not can_run_now():
-        return
+    # if not can_run_now():
+    #     return
     
     if not is_us_market_open():
         print("The US market is currently closed. Script execution halted.")
@@ -153,6 +153,7 @@ def main():
     screener_df.to_csv('Regression_cross_screener_results_2h.csv', index=False)
     
     if not screener_df.empty:
+        print(f"Regression Cross Screener Results:\n{screener_df.tail()}")
         message = (
             "Regression Cross Screener (sent every 2 hrs)\n"
             "Buy = linreg(25) crosses above linreg(50)\n"
