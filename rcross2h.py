@@ -7,7 +7,7 @@ import numpy as np
 import yfinance as yf
 from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
-
+import time
 ############################
 # 1. Market Open Check
 ############################
@@ -136,6 +136,7 @@ def main():
             start_date = end_date - delta
             try:
                 df = download_data(ticker, tf, start_date, end_date)
+                time.sleep(1)
                 if df.empty:
                     print(f"No data for {ticker} on {tf}. Skipping.")
                     continue
