@@ -1,7 +1,7 @@
 
 import pytz
 from datetime import datetime, timedelta
-
+import time 
 def is_us_market_open():
     """Checks if the current time is within US market hours (9:30 AM - 4:00 PM ET) and not on weekends."""
     eastern = pytz.timezone('US/Eastern')
@@ -87,6 +87,7 @@ else:
             start_date = end_date - delta
             try:
                 df = download_data(ticker, tf, start_date, end_date)
+                time.sleep(1)
                 if df.empty:
                     print(f"No data available for {ticker} on timeframe {tf}. Skipping.")
                     continue
