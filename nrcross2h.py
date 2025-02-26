@@ -8,6 +8,7 @@ import yfinance as yf
 from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
+load_dotenv('/home/ubuntu/spxscanner/.env')
 
 ############################
 # 1. Market Open Check
