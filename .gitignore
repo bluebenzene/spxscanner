@@ -4,3 +4,4 @@ sp500_and_small_caps_historical_data.csv
 stockdata/
 *.cache
 *.log
+logs/
