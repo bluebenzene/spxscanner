@@ -119,8 +119,6 @@ def main():
             print(f"Error downloading bulk data for interval {tf}: {e}")
             continue
         
-        # Dictionary to store data per timeframe
-        data = {}
         # Extract available tickers from the MultiIndex level 'Ticker'
         available_tickers = set(his_data.columns.get_level_values('Ticker'))
         for ticker in tickers:
@@ -132,6 +130,13 @@ def main():
                 df = his_data.xs(ticker, axis=1, level='Ticker').copy()
                 # Flatten the columns if needed
                 df.columns = df.columns.get_level_values(0)
+                
+                # Convert timestamps to Eastern Time.
+                if df.index.tz is None:
+                    df.index = df.index.tz_localize('UTC').tz_convert('US/Eastern')
+                else:
+                    df.index = df.index.tz_convert('US/Eastern')
+                
                 # Round OHLC values to two decimals
                 for col in ['Open', 'High', 'Low', 'Close']:
                     if col in df.columns:
@@ -230,9 +235,6 @@ def main():
     # ---------------------------
     # Send Telegram Alerts regardless of signals found
     # ---------------------------
-       # ---------------------------
-    # Send Telegram Alerts regardless of signals found
-    # ---------------------------
     # Linear Regression Alert
     if not linreg_df.empty:
         print(f"2hr Linear Regression Screener Results:\n{linreg_df.tail()}")
@@ -262,7 +264,6 @@ def main():
     
     # Instead of sending to a different channel, send both messages to the same channel:
     send_telegram_message(message_r2)
-
 
 ############################
 # 6. Entry Point
