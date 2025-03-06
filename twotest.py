@@ -109,9 +109,9 @@ session = CachedLimiterSession(
 # 5. Main Screener
 ############################
 def main():
-    if not is_us_market_open():
-        logging.info("The US market is currently closed. Script execution halted.")
-        return
+    # if not is_us_market_open():
+    #     logging.info("The US market is currently closed. Script execution halted.")
+    #     return
     
     # Create directory to store data
     os.makedirs('stockdata', exist_ok=True)
