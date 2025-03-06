@@ -230,6 +230,9 @@ def main():
     # ---------------------------
     # Send Telegram Alerts regardless of signals found
     # ---------------------------
+       # ---------------------------
+    # Send Telegram Alerts regardless of signals found
+    # ---------------------------
     # Linear Regression Alert
     if not linreg_df.empty:
         print(f"2hr Linear Regression Screener Results:\n{linreg_df.tail()}")
@@ -257,7 +260,9 @@ def main():
         print("No R² cross signals found in the last 2 hours.")
         message_r2 = "2hr Screener Results:\nNo R² cross signals found in the last 2 hours."
     
-    send_cross_telegram_message(message_r2)
+    # Instead of sending to a different channel, send both messages to the same channel:
+    send_telegram_message(message_r2)
+
 
 ############################
 # 6. Entry Point
