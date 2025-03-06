@@ -83,9 +83,9 @@ session = CachedLimiterSession(
 # 5. Main Screener
 ############################
 def main():
-    if not is_us_market_open():
-        print("The US market is currently closed. Script execution halted.")
-        return
+    # if not is_us_market_open():
+    #     print("The US market is currently closed. Script execution halted.")
+    #     return
     
     # Create directory to store data
     os.makedirs('stockdata', exist_ok=True)
@@ -228,8 +228,9 @@ def main():
     r2_df.to_csv('Regression_cross_screener_results_2h.csv', index=False)
     
     # ---------------------------
-    # Send Telegram Alerts if Signals Exist
+    # Send Telegram Alerts regardless of signals found
     # ---------------------------
+    # Linear Regression Alert
     if not linreg_df.empty:
         print(f"2hr Linear Regression Screener Results:\n{linreg_df.tail()}")
         message_linreg = (
@@ -238,10 +239,13 @@ def main():
             "Sell = linreg(25) crosses below linreg(50)\n\n" +
             linreg_df.to_string(index=False)
         )
-        send_telegram_message(message_linreg)
     else:
         print("No linear regression signals found in the last 2 hours.")
+        message_linreg = "2hr Screener Results:\nNo linear regression signals found in the last 2 hours."
     
+    send_telegram_message(message_linreg)
+    
+    # R² Indicator Alert
     if not r2_df.empty:
         print(f"2hr R² Screener Results:\n{r2_df.tail()}")
         message_r2 = (
@@ -249,9 +253,11 @@ def main():
             "Signal: r2_smoothed (Length=25, AvgLen=3) crossing under 0.9\n\n" +
             r2_df.to_string(index=False)
         )
-        send_cross_telegram_message(message_r2)
     else:
         print("No R² cross signals found in the last 2 hours.")
+        message_r2 = "2hr Screener Results:\nNo R² cross signals found in the last 2 hours."
+    
+    send_cross_telegram_message(message_r2)
 
 ############################
 # 6. Entry Point
